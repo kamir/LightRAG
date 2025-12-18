@@ -40,6 +40,7 @@ connectors:
   - id: "connector-1"
     enabled: true
     context_id: "107677460544181387647"
+    source_system: "https://onboarding.guide"  # Memory API URL for traceability
 
     schedule:
       type: "interval"  # interval, cron, or manual
@@ -53,18 +54,20 @@ connectors:
       max_concurrency: 5  # As per user's answer: configurable concurrency
 
     transform:
-      strategy: "standard"  # standard or rich
+      strategy: "standard"  # standard or rich (configurable per connector)
       include_metadata: true
-      enrich_location: false
+      enrich_location: false  # Pre-compute location enrichment (disabled by default)
+      media_context: "compact"  # none, compact, detailed
 
     metadata:
       owner: "user@example.com"
       environment: "production"
 
-  # Example connector 2: Cron-based sync at midnight daily
+  # Example connector 2: Cron-based sync at midnight daily (Rich strategy with detailed media)
   - id: "connector-2"
     enabled: false
     context_id: "user_context_xyz789"
+    source_system: "https://onboarding.guide"
 
     schedule:
       type: "cron"
@@ -80,16 +83,18 @@ connectors:
     transform:
       strategy: "rich"  # Use rich transformation with contextual info
       include_metadata: true
-      enrich_location: true
+      enrich_location: true  # Pre-compute location enrichment (for this connector)
+      media_context: "detailed"  # Include full GCS URIs for audio/image
 
     metadata:
       owner: "team@example.com"
       environment: "staging"
 
-  # Example connector 3: Manual trigger only
+  # Example connector 3: Manual trigger only (Standard strategy, minimal media context)
   - id: "connector-3"
     enabled: true
     context_id: "user_context_manual"
+    source_system: "https://onboarding.guide"
 
     schedule:
       type: "manual"  # Only triggered via API or CLI
@@ -105,6 +110,7 @@ connectors:
       strategy: "standard"
       include_metadata: true
       enrich_location: false
+      media_context: "none"  # Exclude media context from content
 
     metadata:
       owner: "admin@example.com"

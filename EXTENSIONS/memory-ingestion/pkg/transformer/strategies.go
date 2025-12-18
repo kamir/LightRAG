@@ -2,7 +2,9 @@ package transformer
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kamir/memory-connector/pkg/models"
 )
@@ -16,38 +18,55 @@ func (s *StandardStrategy) Name() string {
 }
 
 // Transform converts a memory to a simple text format
+//
+// Standard transformation produces clean, focused content optimized for entity extraction.
+// Content format:
+//   [Memory from 2024-01-19 07:28:08 UTC]
+//   {transcript}
+//   [Audio recording available]
 func (s *StandardStrategy) Transform(memory *models.Memory, config TransformConfig) (string, map[string]string, error) {
 	if memory.Transcript == "" {
 		return "", nil, fmt.Errorf("memory %s has no transcript", memory.ID)
 	}
 
-	// Build text content
+	// Build content
 	var builder strings.Builder
+
+	// 1. Temporal context (helps with entity extraction)
+	parsedTime, err := memory.ParseCreatedAt()
+	if err == nil {
+		builder.WriteString(fmt.Sprintf("[Memory from %s]\n", parsedTime.UTC().Format("2006-01-02 15:04:05 MST")))
+	}
+
+	// 2. Primary content
 	builder.WriteString(memory.Transcript)
 
-	// Build metadata
-	metadata := make(map[string]string)
+	// 3. Media context (based on config)
+	mediaContext := config.MediaContext
+	if mediaContext == "" {
+		mediaContext = "compact" // Default
+	}
 
-	if config.IncludeMetadata {
-		metadata["memory_id"] = memory.ID
-		metadata["memory_type"] = memory.Type
-		metadata["created_at"] = memory.CreatedAt
-		metadata["context_id"] = config.ContextID
-		metadata["file_path"] = fmt.Sprintf("api://memory-connector/%s", memory.ID)
-
-		if memory.HasLocation() && config.EnrichLocation {
-			metadata["location_lat"] = fmt.Sprintf("%f", *memory.LocationLat)
-			metadata["location_lon"] = fmt.Sprintf("%f", *memory.LocationLon)
-		}
-
+	if mediaContext != "none" {
+		mediaInfo := []string{}
 		if memory.HasAudio() {
-			metadata["has_audio"] = "true"
+			mediaInfo = append(mediaInfo, "Audio recording available")
 		}
-
 		if memory.HasImage() {
-			metadata["has_image"] = "true"
+			mediaInfo = append(mediaInfo, "Image attachment available")
+		}
+		if len(mediaInfo) > 0 {
+			builder.WriteString("\n[" + strings.Join(mediaInfo, ", ") + "]")
 		}
 	}
+
+	// 4. Location context (if enabled and available)
+	if memory.HasLocation() && config.EnrichLocation {
+		builder.WriteString(fmt.Sprintf("\n[Location: %.4f, %.4f]", *memory.LocationLat, *memory.LocationLon))
+	}
+
+	// Build metadata
+	metadata := buildCoreMetadata(memory, config)
 
 	return builder.String(), metadata, nil
 }
@@ -61,91 +80,223 @@ func (s *RichStrategy) Name() string {
 }
 
 // Transform converts a memory to a rich, context-enhanced format
+//
+// Rich transformation includes comprehensive context and metadata.
+// Content format:
+//   ============================================================
+//   MEMORY: {id}
+//   Date: 2024-01-19 07:28:08 UTC
+//   Type: memory
+//   Collection: default_collection
+//   ============================================================
+//
+//   Summary: {description}
+//
+//   Content:
+//   {transcript}
+//
+//   Attachments:
+//   Audio: gs://...
+//   Image: gs://...
 func (s *RichStrategy) Transform(memory *models.Memory, config TransformConfig) (string, map[string]string, error) {
 	if memory.Transcript == "" {
 		return "", nil, fmt.Errorf("memory %s has no transcript", memory.ID)
 	}
 
-	// Build rich text content with contextual information
 	var builder strings.Builder
 
-	// Add temporal context
+	// 1. Header with metadata
 	parsedTime, err := memory.ParseCreatedAt()
 	if err == nil {
-		builder.WriteString(fmt.Sprintf("[Memory from %s]\n\n", parsedTime.Format("2006-01-02 15:04:05")))
+		builder.WriteString("============================================================\n")
+		builder.WriteString(fmt.Sprintf("MEMORY: %s\n", memory.ID))
+		builder.WriteString(fmt.Sprintf("Date: %s\n", parsedTime.UTC().Format("2006-01-02 15:04:05 MST")))
+		if memory.Type != "" {
+			builder.WriteString(fmt.Sprintf("Type: %s\n", memory.Type))
+		}
+		if memory.CollectionName != "" {
+			builder.WriteString(fmt.Sprintf("Collection: %s\n", memory.CollectionName))
+		}
+		builder.WriteString("============================================================\n\n")
 	}
 
-	// Add location context if available
-	if memory.HasLocation() && config.EnrichLocation {
-		builder.WriteString(fmt.Sprintf("[Location: %.6f, %.6f]\n\n", *memory.LocationLat, *memory.LocationLon))
+	// 2. Description (if available and different from transcript)
+	if memory.Description != "" && memory.Description != memory.Transcript {
+		builder.WriteString(fmt.Sprintf("Summary: %s\n\n", memory.Description))
 	}
 
-	// Add media availability context
-	mediaInfo := []string{}
-	if memory.HasAudio() {
-		mediaInfo = append(mediaInfo, "audio recording available")
-	}
-	if memory.HasImage() {
-		mediaInfo = append(mediaInfo, "image available")
-	}
-	if len(mediaInfo) > 0 {
-		builder.WriteString(fmt.Sprintf("[Media: %s]\n\n", strings.Join(mediaInfo, ", ")))
-	}
-
-	// Add the main transcript
-	builder.WriteString("Transcript:\n")
+	// 3. Primary content
+	builder.WriteString("Content:\n")
 	builder.WriteString(memory.Transcript)
 	builder.WriteString("\n")
 
-	// Add memory type context
-	if memory.Type != "" {
-		builder.WriteString(fmt.Sprintf("\n[Type: %s]", memory.Type))
+	// 4. Media references (based on config)
+	mediaContext := config.MediaContext
+	if mediaContext == "" {
+		mediaContext = "detailed" // Rich strategy defaults to detailed
 	}
 
-	// Build metadata (similar to standard but with additional enrichments)
-	metadata := make(map[string]string)
-
-	if config.IncludeMetadata {
-		metadata["memory_id"] = memory.ID
-		metadata["memory_type"] = memory.Type
-		metadata["created_at"] = memory.CreatedAt
-		metadata["context_id"] = config.ContextID
-		metadata["transformation_strategy"] = "rich"
-		metadata["file_path"] = fmt.Sprintf("api://memory-connector/%s", memory.ID)
-
-		if memory.HasLocation() {
-			metadata["location_lat"] = fmt.Sprintf("%f", *memory.LocationLat)
-			metadata["location_lon"] = fmt.Sprintf("%f", *memory.LocationLon)
-
-			// Add enrichment flag
-			if config.EnrichLocation {
-				metadata["location_enriched"] = "true"
-			}
-		}
-
+	if mediaContext != "none" {
+		mediaInfo := []string{}
 		if memory.HasAudio() {
-			metadata["has_audio"] = "true"
-			if memory.GcsUri != "" {
-				metadata["audio_reference"] = memory.GcsUri
+			if mediaContext == "detailed" && memory.GcsUri != "" {
+				mediaInfo = append(mediaInfo, fmt.Sprintf("Audio: %s", memory.GcsUri))
+			} else if mediaContext == "compact" {
+				mediaInfo = append(mediaInfo, "Audio recording available")
 			}
 		}
-
 		if memory.HasImage() {
-			metadata["has_image"] = "true"
-			if memory.GcsUriImg != "" {
-				metadata["image_reference"] = memory.GcsUriImg
+			if mediaContext == "detailed" && memory.GcsUriImg != "" {
+				mediaInfo = append(mediaInfo, fmt.Sprintf("Image: %s", memory.GcsUriImg))
+			} else if mediaContext == "compact" {
+				mediaInfo = append(mediaInfo, "Image attachment available")
 			}
 		}
-
-		// Add temporal metadata
-		if parsedTime, err := memory.ParseCreatedAt(); err == nil {
-			metadata["year"] = fmt.Sprintf("%d", parsedTime.Year())
-			metadata["month"] = fmt.Sprintf("%d", parsedTime.Month())
-			metadata["day"] = fmt.Sprintf("%d", parsedTime.Day())
-			metadata["hour"] = fmt.Sprintf("%d", parsedTime.Hour())
-			metadata["weekday"] = parsedTime.Weekday().String()
+		if len(mediaInfo) > 0 {
+			builder.WriteString("\nAttachments:\n")
+			builder.WriteString(strings.Join(mediaInfo, "\n"))
+			builder.WriteString("\n")
 		}
 	}
+
+	// 5. Location (if available)
+	if memory.HasLocation() {
+		builder.WriteString("\n")
+		if config.EnrichLocation {
+			// TODO: Add reverse geocoding here when implemented
+			builder.WriteString(fmt.Sprintf("Location: %.4f, %.4f\n", *memory.LocationLat, *memory.LocationLon))
+		} else {
+			builder.WriteString(fmt.Sprintf("Location: %.4f, %.4f\n", *memory.LocationLat, *memory.LocationLon))
+		}
+	}
+
+	// 6. Tags
+	if len(memory.Tags) > 0 {
+		builder.WriteString(fmt.Sprintf("\nTags: %s\n", strings.Join(memory.Tags, ", ")))
+	}
+
+	// Build rich metadata
+	metadata := buildRichMetadata(memory, config)
 
 	return builder.String(), metadata, nil
+}
+
+// buildCoreMetadata creates the core metadata fields (used by both strategies)
+func buildCoreMetadata(memory *models.Memory, config TransformConfig) map[string]string {
+	metadata := make(map[string]string)
+
+	if !config.IncludeMetadata {
+		return metadata
+	}
+
+	// === SOURCE TRACEABILITY ===
+	// Use memory:// URI scheme as approved
+	contextID := memory.ContextID
+	if contextID == "" {
+		contextID = config.ContextID // Fallback to config
+	}
+	metadata["memory_id"] = memory.ID
+	metadata["context_id"] = contextID
+	metadata["file_path"] = fmt.Sprintf("memory://%s/%s", contextID, memory.ID)
+
+	// Source system URL (if configured)
+	if config.SourceSystem != "" {
+		metadata["source_system"] = config.SourceSystem
+	}
+
+	// === TEMPORAL METADATA ===
+	metadata["created_at"] = memory.CreatedAt
+	if parsedTime, err := memory.ParseCreatedAt(); err == nil {
+		metadata["created_timestamp"] = fmt.Sprintf("%d", parsedTime.Unix())
+		metadata["created_year"] = fmt.Sprintf("%d", parsedTime.Year())
+		metadata["created_month"] = fmt.Sprintf("%02d", int(parsedTime.Month()))
+		metadata["created_date"] = parsedTime.Format("2006-01-02")
+	}
+
+	if memory.UpdatedAt != nil && *memory.UpdatedAt != memory.CreatedAt {
+		metadata["updated_at"] = *memory.UpdatedAt
+	}
+
+	// === CLASSIFICATION ===
+	if memory.Type != "" {
+		metadata["memory_type"] = memory.Type
+	}
+	if memory.CollectionName != "" {
+		metadata["collection_name"] = memory.CollectionName
+	}
+	if memory.TranscriptStatus != "" {
+		metadata["transcript_status"] = memory.TranscriptStatus
+	}
+
+	// === MEDIA FLAGS ===
+	if memory.HasAudio() {
+		metadata["has_audio"] = "true"
+	} else {
+		metadata["has_audio"] = "false"
+	}
+	if memory.HasImage() {
+		metadata["has_image"] = "true"
+	} else {
+		metadata["has_image"] = "false"
+	}
+
+	// === LOCATION ===
+	if memory.HasLocation() {
+		metadata["location_lat"] = fmt.Sprintf("%.6f", *memory.LocationLat)
+		metadata["location_lon"] = fmt.Sprintf("%.6f", *memory.LocationLon)
+		// TODO: Add geohash when implemented
+	}
+
+	// === TAGS ===
+	if len(memory.Tags) > 0 {
+		metadata["tags"] = strings.Join(memory.Tags, ",")
+		metadata["tag_count"] = fmt.Sprintf("%d", len(memory.Tags))
+	}
+
+	// === TRANSFORMATION INFO ===
+	metadata["transformation_strategy"] = "standard"
+	metadata["ingestion_timestamp"] = time.Now().UTC().Format(time.RFC3339)
+	metadata["connector_id"] = config.ConnectorID
+
+	return metadata
+}
+
+// buildRichMetadata creates rich metadata (superset of core metadata)
+func buildRichMetadata(memory *models.Memory, config TransformConfig) map[string]string {
+	// Start with core metadata
+	metadata := buildCoreMetadata(memory, config)
+
+	if !config.IncludeMetadata {
+		return metadata
+	}
+
+	// Override transformation strategy
+	metadata["transformation_strategy"] = "rich"
+
+	// === MEDIA REFERENCES (detailed) ===
+	if memory.HasAudio() && memory.GcsUri != "" {
+		metadata["audio_uri"] = memory.GcsUri
+		// Extract filename from GCS URI
+		metadata["audio_filename"] = filepath.Base(memory.GcsUri)
+	}
+
+	if memory.HasImage() && memory.GcsUriImg != "" {
+		metadata["image_uri"] = memory.GcsUriImg
+		metadata["image_filename"] = filepath.Base(memory.GcsUriImg)
+	}
+
+	// === LOCATION ENRICHMENT ===
+	if memory.HasLocation() && config.EnrichLocation {
+		metadata["location_enriched"] = "true"
+		// TODO: Add reverse geocoded location name when implemented
+	}
+
+	// === TEMPORAL METADATA (enhanced) ===
+	if parsedTime, err := memory.ParseCreatedAt(); err == nil {
+		metadata["created_day"] = fmt.Sprintf("%02d", parsedTime.Day())
+		metadata["created_hour"] = fmt.Sprintf("%02d", parsedTime.Hour())
+		metadata["created_weekday"] = parsedTime.Weekday().String()
+	}
+
+	return metadata
 }

@@ -162,7 +162,10 @@ func (o *Orchestrator) processMemoriesConcurrent(
 	transformConfig := transformer.TransformConfig{
 		IncludeMetadata: config.Transform.IncludeMetadata,
 		EnrichLocation:  config.Transform.EnrichLocation,
+		MediaContext:    config.Transform.MediaContext,
 		ContextID:       config.ContextID,
+		SourceSystem:    config.SourceSystem,
+		ConnectorID:     config.ID,
 	}
 
 	for i := range memories {

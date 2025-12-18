@@ -23,7 +23,10 @@ type Strategy interface {
 type TransformConfig struct {
 	IncludeMetadata bool
 	EnrichLocation  bool
+	MediaContext    string // "none", "compact", "detailed"
 	ContextID       string
+	SourceSystem    string // Source system URL for metadata
+	ConnectorID     string // Connector ID for traceability
 }
 
 // NewTransformer creates a new transformer with the specified strategy

@@ -7,13 +7,14 @@ import (
 
 // ConnectorConfig represents a single memory ingestion connector
 type ConnectorConfig struct {
-	ID         string            `json:"id" yaml:"id" mapstructure:"id" validate:"required"`
-	Enabled    bool              `json:"enabled" yaml:"enabled" mapstructure:"enabled"`
-	ContextID  string            `json:"context_id" yaml:"context_id" mapstructure:"context_id" validate:"required"`
-	Schedule   ScheduleConfig    `json:"schedule" yaml:"schedule" mapstructure:"schedule"`
-	Ingestion  IngestionConfig   `json:"ingestion" yaml:"ingestion" mapstructure:"ingestion"`
-	Transform  TransformConfig   `json:"transform" yaml:"transform" mapstructure:"transform"`
-	Metadata   map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty" mapstructure:"metadata,omitempty"`
+	ID           string            `json:"id" yaml:"id" mapstructure:"id" validate:"required"`
+	Enabled      bool              `json:"enabled" yaml:"enabled" mapstructure:"enabled"`
+	ContextID    string            `json:"context_id" yaml:"context_id" mapstructure:"context_id" validate:"required"`
+	SourceSystem string            `json:"source_system,omitempty" yaml:"source_system,omitempty" mapstructure:"source_system,omitempty"`
+	Schedule     ScheduleConfig    `json:"schedule" yaml:"schedule" mapstructure:"schedule"`
+	Ingestion    IngestionConfig   `json:"ingestion" yaml:"ingestion" mapstructure:"ingestion"`
+	Transform    TransformConfig   `json:"transform" yaml:"transform" mapstructure:"transform"`
+	Metadata     map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty" mapstructure:"metadata,omitempty"`
 }
 
 // ScheduleConfig defines when the connector should run
@@ -34,9 +35,10 @@ type IngestionConfig struct {
 
 // TransformConfig defines transformation options
 type TransformConfig struct {
-	Strategy       string `json:"strategy" yaml:"strategy" mapstructure:"strategy" validate:"required,oneof=standard rich"`
-	IncludeMetadata bool  `json:"include_metadata" yaml:"include_metadata" mapstructure:"include_metadata"`
-	EnrichLocation bool   `json:"enrich_location" yaml:"enrich_location" mapstructure:"enrich_location"`
+	Strategy        string `json:"strategy" yaml:"strategy" mapstructure:"strategy" validate:"required,oneof=standard rich"`
+	IncludeMetadata bool   `json:"include_metadata" yaml:"include_metadata" mapstructure:"include_metadata"`
+	EnrichLocation  bool   `json:"enrich_location" yaml:"enrich_location" mapstructure:"enrich_location"`
+	MediaContext    string `json:"media_context,omitempty" yaml:"media_context,omitempty" mapstructure:"media_context,omitempty" validate:"omitempty,oneof=none compact detailed"`
 }
 
 // ConnectorStatus represents the current state of a connector

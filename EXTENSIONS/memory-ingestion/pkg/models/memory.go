@@ -6,17 +6,22 @@ import (
 
 // Memory represents a memory item from the Memory API
 type Memory struct {
-	ID          string    `json:"id" yaml:"id"`
-	Type        string    `json:"type" yaml:"type"`
-	Audio       bool      `json:"audio" yaml:"audio"`
-	Image       bool      `json:"image" yaml:"image"`
-	GcsUri      string    `json:"gcs_uri,omitempty" yaml:"gcs_uri,omitempty"`
-	GcsUriImg   string    `json:"gcs_uri_img,omitempty" yaml:"gcs_uri_img,omitempty"`
-	Transcript  string    `json:"transcript" yaml:"transcript"`
-	LocationLat *float64  `json:"location_lat,omitempty" yaml:"location_lat,omitempty"`
-	LocationLon *float64  `json:"location_lon,omitempty" yaml:"location_lon,omitempty"`
-	CreatedAt   string    `json:"created_at" yaml:"created_at"`
-	UpdatedAt   *string   `json:"updated_at,omitempty" yaml:"updated_at,omitempty"`
+	ID               string    `json:"id" yaml:"id"`
+	Type             string    `json:"type" yaml:"type"`
+	Audio            bool      `json:"audio" yaml:"audio"`
+	Image            bool      `json:"image" yaml:"image"`
+	GcsUri           string    `json:"gcs_uri,omitempty" yaml:"gcs_uri,omitempty"`
+	GcsUriImg        string    `json:"gcs_uri_img,omitempty" yaml:"gcs_uri_img,omitempty"`
+	Transcript       string    `json:"transcript" yaml:"transcript"`
+	Description      string    `json:"description,omitempty" yaml:"description,omitempty"`
+	ContextID        string    `json:"context_id,omitempty" yaml:"context_id,omitempty"`
+	CollectionName   string    `json:"collection_name,omitempty" yaml:"collection_name,omitempty"`
+	Tags             []string  `json:"tags,omitempty" yaml:"tags,omitempty"`
+	TranscriptStatus string    `json:"transcript_status,omitempty" yaml:"transcript_status,omitempty"`
+	LocationLat      *float64  `json:"location_lat,omitempty" yaml:"location_lat,omitempty"`
+	LocationLon      *float64  `json:"location_lon,omitempty" yaml:"location_lon,omitempty"`
+	CreatedAt        string    `json:"created_at" yaml:"created_at"`
+	UpdatedAt        *string   `json:"updated_at,omitempty" yaml:"updated_at,omitempty"`
 }
 
 // MemoryList represents a list of memories from the API
