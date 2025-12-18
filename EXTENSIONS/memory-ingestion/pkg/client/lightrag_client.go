@@ -14,12 +14,14 @@ import (
 
 // LightRAGClient is a client for the LightRAG API
 type LightRAGClient struct {
-	apiURL     string
-	apiKey     string
-	httpClient *http.Client
-	logger     *zap.Logger
-	maxRetries int
-	retryDelay time.Duration
+	apiURL          string
+	apiKey          string
+	accessToken     string
+	authConfigured  bool
+	httpClient      *http.Client
+	logger          *zap.Logger
+	maxRetries      int
+	retryDelay      time.Duration
 }
 
 // LightRAGClientConfig holds configuration for the LightRAG API client
@@ -44,6 +46,15 @@ type DocumentResponse struct {
 	DocID   string `json:"doc_id,omitempty"`
 }
 
+// AuthStatusResponse represents the response from /auth-status endpoint
+type AuthStatusResponse struct {
+	AuthConfigured bool   `json:"auth_configured"`
+	AccessToken    string `json:"access_token"`
+	TokenType      string `json:"token_type"`
+	AuthMode       string `json:"auth_mode"`
+	Message        string `json:"message"`
+}
+
 // NewLightRAGClient creates a new LightRAG API client
 func NewLightRAGClient(config LightRAGClientConfig, logger *zap.Logger) *LightRAGClient {
 	if config.Timeout == 0 {
@@ -56,7 +67,7 @@ func NewLightRAGClient(config LightRAGClientConfig, logger *zap.Logger) *LightRA
 		config.RetryDelay = 2 * time.Second
 	}
 
-	return &LightRAGClient{
+	client := &LightRAGClient{
 		apiURL: config.APIURL,
 		apiKey: config.APIKey,
 		httpClient: &http.Client{
@@ -66,6 +77,20 @@ func NewLightRAGClient(config LightRAGClientConfig, logger *zap.Logger) *LightRA
 		maxRetries: config.MaxRetries,
 		retryDelay: config.RetryDelay,
 	}
+
+	// If no API key is configured, fetch guest access token from auth-status
+	if config.APIKey == "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := client.fetchAuthStatus(ctx); err != nil {
+			logger.Warn("Failed to fetch auth status, will proceed without token",
+				zap.Error(err),
+			)
+		}
+	}
+
+	return client
 }
 
 // InsertDocument inserts a document into LightRAG
@@ -97,6 +122,57 @@ func (c *LightRAGClient) InsertDocument(ctx context.Context, text string, metada
 	return &docResp, nil
 }
 
+// fetchAuthStatus fetches the authentication status and access token
+func (c *LightRAGClient) fetchAuthStatus(ctx context.Context) error {
+	url := fmt.Sprintf("%s/auth-status", c.apiURL)
+
+	c.logger.Debug("Fetching auth status", zap.String("url", url))
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create auth-status request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("auth-status request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("auth-status returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read auth-status response: %w", err)
+	}
+
+	var authStatus AuthStatusResponse
+	if err := json.Unmarshal(body, &authStatus); err != nil {
+		return fmt.Errorf("failed to unmarshal auth-status response: %w", err)
+	}
+
+	c.authConfigured = authStatus.AuthConfigured
+	c.accessToken = authStatus.AccessToken
+
+	if c.authConfigured {
+		c.logger.Info("LightRAG authentication is configured",
+			zap.String("auth_mode", authStatus.AuthMode),
+		)
+	} else {
+		c.logger.Info("LightRAG authentication is disabled, using guest access token",
+			zap.String("auth_mode", authStatus.AuthMode),
+			zap.String("message", authStatus.Message),
+		)
+	}
+
+	return nil
+}
+
 // HealthCheck checks if the LightRAG API is available
 func (c *LightRAGClient) HealthCheck(ctx context.Context) error {
 	url := fmt.Sprintf("%s/health", c.apiURL)
@@ -108,10 +184,8 @@ func (c *LightRAGClient) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
 
-	// Add API key if configured
-	if c.apiKey != "" {
-		req.Header.Set("X-API-Key", c.apiKey)
-	}
+	// Add authentication header
+	c.setAuthHeader(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -160,10 +234,8 @@ func (c *LightRAGClient) doRequestWithRetry(ctx context.Context, method, url str
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
-		// Add API key if configured
-		if c.apiKey != "" {
-			req.Header.Set("X-API-Key", c.apiKey)
-		}
+		// Add authentication header
+		c.setAuthHeader(req)
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
@@ -210,4 +282,15 @@ func (c *LightRAGClient) doRequestWithRetry(ctx context.Context, method, url str
 	}
 
 	return fmt.Errorf("request failed after %d retries: %w", c.maxRetries, lastErr)
+}
+
+// setAuthHeader sets the appropriate authentication header on the request
+func (c *LightRAGClient) setAuthHeader(req *http.Request) {
+	if c.apiKey != "" {
+		// Use X-API-Key if explicitly configured
+		req.Header.Set("X-API-Key", c.apiKey)
+	} else if c.accessToken != "" {
+		// Use Bearer token from auth-status (guest access or authenticated)
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	}
 }

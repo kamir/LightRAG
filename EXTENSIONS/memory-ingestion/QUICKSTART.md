@@ -64,17 +64,17 @@ export MEMCON_MEMORY_API_API_KEY="your-memory-api-key"
 
 **LightRAG API (Optional - only if authentication is enabled):**
 
-First, check if your LightRAG server has authentication enabled:
+The connector automatically detects your LightRAG authentication configuration:
+- If authentication is **disabled**, it auto-fetches a guest access token
+- If authentication is **enabled**, you must set the API key:
+  ```bash
+  export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
+  ```
+
+To check your LightRAG auth status:
 ```bash
 curl http://localhost:9621/auth-status
 ```
-
-If `"auth_configured": true`, set the API key:
-```bash
-export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
-```
-
-If `"auth_configured": false`, skip this step - authentication is disabled.
 
 **Alternative:** Set directly in config.yaml (not recommended for production):
 
@@ -96,13 +96,28 @@ Before running a full sync, verify your API endpoints are working:
 curl http://localhost:9621/auth-status
 ```
 
-If `auth_configured` is `true`, you need to set the API key. If `false`, authentication is disabled and you can skip setting `MEMCON_LIGHTRAG_API_KEY`.
+The response shows if authentication is enabled. The connector will automatically handle authentication:
+- If `"auth_configured": false` → Connector auto-fetches guest access token
+- If `"auth_configured": true` → You must set `MEMCON_LIGHTRAG_API_KEY`
 
 ```bash
 # Health check
 curl http://localhost:9621/health
 
-# Insert a test document (with API key if auth is enabled)
+# Manual test: Insert a document with Bearer token (auth disabled)
+TOKEN=$(curl -s http://localhost:9621/auth-status | jq -r '.access_token')
+curl -X POST http://localhost:9621/documents/text \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "text": "This is a test memory from my connector setup.",
+    "metadata": {
+      "source": "test",
+      "timestamp": "2024-01-18T12:00:00Z"
+    }
+  }'
+
+# Manual test: Insert a document with API key (auth enabled)
 curl -X POST http://localhost:9621/documents/text \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_API_KEY" \
@@ -113,18 +128,9 @@ curl -X POST http://localhost:9621/documents/text \
       "timestamp": "2024-01-18T12:00:00Z"
     }
   }'
-
-# Or without API key if auth is disabled
-curl -X POST http://localhost:9621/documents/text \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "This is a test memory from my connector setup.",
-    "metadata": {
-      "source": "test",
-      "timestamp": "2024-01-18T12:00:00Z"
-    }
-  }'
 ```
+
+**Note:** The connector handles this automatically - you don't need to fetch tokens manually!
 
 Expected response:
 ```json
