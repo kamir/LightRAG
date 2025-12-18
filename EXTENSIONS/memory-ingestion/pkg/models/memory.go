@@ -10,6 +10,8 @@ type Memory struct {
 	Type        string    `json:"type" yaml:"type"`
 	Audio       bool      `json:"audio" yaml:"audio"`
 	Image       bool      `json:"image" yaml:"image"`
+	GcsUri      string    `json:"gcs_uri,omitempty" yaml:"gcs_uri,omitempty"`
+	GcsUriImg   string    `json:"gcs_uri_img,omitempty" yaml:"gcs_uri_img,omitempty"`
 	Transcript  string    `json:"transcript" yaml:"transcript"`
 	LocationLat *float64  `json:"location_lat,omitempty" yaml:"location_lat,omitempty"`
 	LocationLon *float64  `json:"location_lon,omitempty" yaml:"location_lon,omitempty"`
