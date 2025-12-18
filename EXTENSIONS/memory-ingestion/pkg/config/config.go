@@ -100,6 +100,11 @@ func LoadConfig(configPath string, logger *zap.Logger) (*Config, error) {
 		logger.Info("Using Memory API key from environment")
 	}
 
+	if apiKey := os.Getenv("MEMCON_LIGHTRAG_API_KEY"); apiKey != "" {
+		config.LightRAG.APIKey = apiKey
+		logger.Info("Using LightRAG API key from environment")
+	}
+
 	// Validate configuration
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
