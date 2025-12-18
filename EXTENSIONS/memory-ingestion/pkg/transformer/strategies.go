@@ -33,6 +33,7 @@ func (s *StandardStrategy) Transform(memory *models.Memory, config TransformConf
 		metadata["memory_type"] = memory.Type
 		metadata["created_at"] = memory.CreatedAt
 		metadata["context_id"] = config.ContextID
+		metadata["file_path"] = fmt.Sprintf("api://memory-connector/%s", memory.ID)
 
 		if memory.HasLocation() && config.EnrichLocation {
 			metadata["location_lat"] = fmt.Sprintf("%f", *memory.LocationLat)
@@ -110,6 +111,7 @@ func (s *RichStrategy) Transform(memory *models.Memory, config TransformConfig) 
 		metadata["created_at"] = memory.CreatedAt
 		metadata["context_id"] = config.ContextID
 		metadata["transformation_strategy"] = "rich"
+		metadata["file_path"] = fmt.Sprintf("api://memory-connector/%s", memory.ID)
 
 		if memory.HasLocation() {
 			metadata["location_lat"] = fmt.Sprintf("%f", *memory.LocationLat)
