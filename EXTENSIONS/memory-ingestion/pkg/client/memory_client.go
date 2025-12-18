@@ -13,6 +13,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // MemoryClient is a client for the Memory API
 type MemoryClient struct {
 	apiURL     string
@@ -66,7 +74,7 @@ func (c *MemoryClient) GetMemories(ctx context.Context, ctxID string, limit int,
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
-	c.logger.Debug("Fetching memories",
+	c.logger.Info("Fetching memories from API",
 		zap.String("url", fullURL),
 		zap.String("context_id", ctxID),
 		zap.Int("limit", limit),
@@ -133,6 +141,12 @@ func (c *MemoryClient) doRequestWithRetry(ctx context.Context, method, url strin
 		req.Header.Set("X-API-KEY", c.apiKey)
 		req.Header.Set("Accept", "application/json")
 
+		c.logger.Info("Sending HTTP request",
+			zap.String("method", method),
+			zap.String("url", url),
+			zap.String("api_key_prefix", c.apiKey[:min(8, len(c.apiKey))]+"..."),
+		)
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = err
@@ -167,8 +181,18 @@ func (c *MemoryClient) doRequestWithRetry(ctx context.Context, method, url strin
 			continue
 		}
 
+		c.logger.Info("Received HTTP response",
+			zap.Int("status_code", resp.StatusCode),
+			zap.Int("body_length", len(body)),
+			zap.String("body_preview", string(body[:min(200, len(body))])),
+		)
+
 		err = json.Unmarshal(body, result)
 		if err != nil {
+			c.logger.Error("Failed to unmarshal JSON response",
+				zap.Error(err),
+				zap.String("body", string(body)),
+			)
 			return fmt.Errorf("failed to unmarshal response: %w", err)
 		}
 

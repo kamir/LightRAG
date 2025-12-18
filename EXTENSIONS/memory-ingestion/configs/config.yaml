@@ -7,8 +7,8 @@ server:
 
 # Memory API Configuration
 memory_api:
-  url: "https://api.example.com"  # Replace with your Memory API URL
-  api_key: ""  # Set via MEMCON_MEMORY_API_API_KEY environment variable for security
+  url: "https://onboarding.guide"  # Replace with your Memory API URL
+  api_key: ""  # IMPORTANT: Set via MEMCON_MEMORY_API_API_KEY environment variable (do not commit API keys!)
   timeout: 30  # seconds
   max_retries: 3
   retry_delay: 2  # seconds
@@ -38,7 +38,7 @@ connectors:
   # Example connector 1: Hourly sync with interval schedule
   - id: "connector-1"
     enabled: true
-    context_id: "user_context_abc123"
+    context_id: "107677460544181387647"
 
     schedule:
       type: "interval"  # interval, cron, or manual
