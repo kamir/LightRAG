@@ -7,7 +7,7 @@ server:
 
 # Memory API Configuration
 memory_api:
-  url: "https://api.example.com"  # Replace with your Memory API URL
+  url: "https://your-actual-memory-api-url.com"  # TODO: Replace with your real Memory API URL
   api_key: ""  # Set via MEMCON_MEMORY_API_API_KEY environment variable for security
   timeout: 30  # seconds
   max_retries: 3
@@ -38,7 +38,7 @@ connectors:
   # Example connector 1: Hourly sync with interval schedule
   - id: "connector-1"
     enabled: true
-    context_id: "user_context_abc123"
+    context_id: "YOUR_CONTEXT_ID_HERE"  # TODO: Replace with your actual context ID from Memory API
 
     schedule:
       type: "interval"  # interval, cron, or manual
