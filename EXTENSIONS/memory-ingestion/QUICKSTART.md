@@ -54,12 +54,13 @@ connectors:
       include_metadata: true
 ```
 
-## Step 3: Set Your API Key
+## Step 3: Set Your API Keys
 
-**Recommended:** Use environment variable for security:
+**Recommended:** Use environment variables for security:
 
 ```bash
 export MEMCON_MEMORY_API_API_KEY="your-memory-api-key"
+export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
 ```
 
 **Alternative:** Set directly in config.yaml (not recommended for production):
@@ -67,7 +68,65 @@ export MEMCON_MEMORY_API_API_KEY="your-memory-api-key"
 ```yaml
 memory_api:
   api_key: "your-memory-api-key"
+lightrag:
+  api_key: "your-lightrag-api-key"
 ```
+
+## Step 3.5: Test API Endpoints (Optional)
+
+Before running a full sync, verify your API endpoints are working:
+
+**Test LightRAG Server:**
+
+```bash
+# Health check
+curl http://localhost:9621/health
+
+# Insert a test document
+curl -X POST http://localhost:9621/documents/text \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: TEST123" \
+  -d '{
+    "text": "This is a test memory from my connector setup.",
+    "metadata": {
+      "source": "test",
+      "timestamp": "2024-01-18T12:00:00Z"
+    }
+  }'
+```
+
+Expected response:
+```json
+{
+  "status": "success",
+  "doc_id": "some-document-id"
+}
+```
+
+**Test Memory API:**
+
+```bash
+# Fetch memories for debugging
+curl -X GET "https://your-memory-api.com/memory/YOUR_CONTEXT_ID?limit=10&range=day" \
+  -H "X-API-KEY: your-memory-api-key"
+```
+
+Expected response:
+```json
+{
+  "count": 10,
+  "memories": [
+    {
+      "id": "...",
+      "transcript": "...",
+      "created_at": "2024-01-18T12:00:00Z",
+      ...
+    }
+  ]
+}
+```
+
+If either test fails, fix the issue before proceeding to the next step.
 
 ## Step 4: Run Your First Sync
 
@@ -220,11 +279,24 @@ logging:
 - Check Memory API URL is correct
 - Verify API key is set correctly
 - Ensure context_id exists in Memory API
+- **Test manually:**
+  ```bash
+  curl -X GET "https://your-memory-api.com/memory/YOUR_CONTEXT_ID?limit=10&range=day" \
+    -H "X-API-KEY: your-memory-api-key"
+  ```
 
-### "Failed to insert document"
+### "Failed to insert document" or "API Key required"
 
 - Check LightRAG is running: `curl http://localhost:9621/health`
 - Verify LightRAG URL in config
+- Ensure `MEMCON_LIGHTRAG_API_KEY` environment variable is set
+- **Test manually:**
+  ```bash
+  curl -X POST http://localhost:9621/documents/text \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: YOUR_API_KEY" \
+    -d '{"text": "test", "metadata": {}}'
+  ```
 
 ### "No new memories found"
 
