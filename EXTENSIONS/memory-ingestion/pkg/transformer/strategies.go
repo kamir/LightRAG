@@ -123,15 +123,15 @@ func (s *RichStrategy) Transform(memory *models.Memory, config TransformConfig) 
 
 		if memory.HasAudio() {
 			metadata["has_audio"] = "true"
-			if memory.Audio != nil {
-				metadata["audio_reference"] = *memory.Audio
+			if memory.GcsUri != "" {
+				metadata["audio_reference"] = memory.GcsUri
 			}
 		}
 
 		if memory.HasImage() {
 			metadata["has_image"] = "true"
-			if memory.Image != nil {
-				metadata["image_reference"] = *memory.Image
+			if memory.GcsUriImg != "" {
+				metadata["image_reference"] = memory.GcsUriImg
 			}
 		}
 
