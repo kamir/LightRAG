@@ -16,6 +16,7 @@ memory_api:
 # LightRAG API Configuration
 lightrag:
   url: "http://localhost:9621"  # LightRAG API endpoint
+  api_key: ""  # IMPORTANT: Set via MEMCON_LIGHTRAG_API_KEY environment variable (do not commit API keys!)
   timeout: 60  # seconds
   max_retries: 3
   retry_delay: 2  # seconds
