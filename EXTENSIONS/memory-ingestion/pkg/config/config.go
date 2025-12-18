@@ -11,48 +11,48 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server     ServerConfig              `yaml:"server"`
-	MemoryAPI  MemoryAPIConfig           `yaml:"memory_api"`
-	LightRAG   LightRAGConfig            `yaml:"lightrag"`
-	Logging    LoggingConfig             `yaml:"logging"`
-	Storage    StorageConfig             `yaml:"storage"`
-	Connectors []models.ConnectorConfig  `yaml:"connectors"`
+	Server     ServerConfig              `yaml:"server" mapstructure:"server"`
+	MemoryAPI  MemoryAPIConfig           `yaml:"memory_api" mapstructure:"memory_api"`
+	LightRAG   LightRAGConfig            `yaml:"lightrag" mapstructure:"lightrag"`
+	Logging    LoggingConfig             `yaml:"logging" mapstructure:"logging"`
+	Storage    StorageConfig             `yaml:"storage" mapstructure:"storage"`
+	Connectors []models.ConnectorConfig  `yaml:"connectors" mapstructure:"connectors"`
 }
 
 // ServerConfig holds HTTP server configuration
 type ServerConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host string `yaml:"host" mapstructure:"host"`
+	Port int    `yaml:"port" mapstructure:"port"`
 }
 
 // MemoryAPIConfig holds Memory API client configuration
 type MemoryAPIConfig struct {
-	URL        string `yaml:"url" validate:"required,url"`
-	APIKey     string `yaml:"api_key" validate:"required"`
-	Timeout    int    `yaml:"timeout"`    // seconds
-	MaxRetries int    `yaml:"max_retries"`
-	RetryDelay int    `yaml:"retry_delay"` // seconds
+	URL        string `yaml:"url" mapstructure:"url" validate:"required,url"`
+	APIKey     string `yaml:"api_key" mapstructure:"api_key" validate:"required"`
+	Timeout    int    `yaml:"timeout" mapstructure:"timeout"`       // seconds
+	MaxRetries int    `yaml:"max_retries" mapstructure:"max_retries"`
+	RetryDelay int    `yaml:"retry_delay" mapstructure:"retry_delay"` // seconds
 }
 
 // LightRAGConfig holds LightRAG API configuration
 type LightRAGConfig struct {
-	URL        string `yaml:"url" validate:"required,url"`
-	Timeout    int    `yaml:"timeout"`    // seconds
-	MaxRetries int    `yaml:"max_retries"`
-	RetryDelay int    `yaml:"retry_delay"` // seconds
+	URL        string `yaml:"url" mapstructure:"url" validate:"required,url"`
+	Timeout    int    `yaml:"timeout" mapstructure:"timeout"`       // seconds
+	MaxRetries int    `yaml:"max_retries" mapstructure:"max_retries"`
+	RetryDelay int    `yaml:"retry_delay" mapstructure:"retry_delay"` // seconds
 }
 
 // LoggingConfig holds logging configuration
 type LoggingConfig struct {
-	Level      string `yaml:"level"`       // debug, info, warn, error
-	Format     string `yaml:"format"`      // json or console (as per user's answer: both, configurable)
-	OutputPath string `yaml:"output_path"` // file path or stdout
+	Level      string `yaml:"level" mapstructure:"level"`             // debug, info, warn, error
+	Format     string `yaml:"format" mapstructure:"format"`           // json or console (as per user's answer: both, configurable)
+	OutputPath string `yaml:"output_path" mapstructure:"output_path"` // file path or stdout
 }
 
 // StorageConfig holds state storage configuration
 type StorageConfig struct {
-	Type string `yaml:"type"` // json or sqlite (as per user's answer: both in parallel)
-	Path string `yaml:"path"` // directory for json files or sqlite db path
+	Type string `yaml:"type" mapstructure:"type"` // json or sqlite (as per user's answer: both in parallel)
+	Path string `yaml:"path" mapstructure:"path"` // directory for json files or sqlite db path
 }
 
 // LoadConfig loads configuration from file and environment variables
