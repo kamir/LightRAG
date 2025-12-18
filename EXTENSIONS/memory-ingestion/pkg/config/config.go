@@ -37,6 +37,7 @@ type MemoryAPIConfig struct {
 // LightRAGConfig holds LightRAG API configuration
 type LightRAGConfig struct {
 	URL        string `yaml:"url" mapstructure:"url" validate:"required,url"`
+	APIKey     string `yaml:"api_key" mapstructure:"api_key"`
 	Timeout    int    `yaml:"timeout" mapstructure:"timeout"`       // seconds
 	MaxRetries int    `yaml:"max_retries" mapstructure:"max_retries"`
 	RetryDelay int    `yaml:"retry_delay" mapstructure:"retry_delay"` // seconds

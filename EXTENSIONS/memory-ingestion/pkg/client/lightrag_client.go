@@ -15,6 +15,7 @@ import (
 // LightRAGClient is a client for the LightRAG API
 type LightRAGClient struct {
 	apiURL     string
+	apiKey     string
 	httpClient *http.Client
 	logger     *zap.Logger
 	maxRetries int
@@ -24,6 +25,7 @@ type LightRAGClient struct {
 // LightRAGClientConfig holds configuration for the LightRAG API client
 type LightRAGClientConfig struct {
 	APIURL     string
+	APIKey     string
 	Timeout    time.Duration
 	MaxRetries int
 	RetryDelay time.Duration
@@ -56,6 +58,7 @@ func NewLightRAGClient(config LightRAGClientConfig, logger *zap.Logger) *LightRA
 
 	return &LightRAGClient{
 		apiURL: config.APIURL,
+		apiKey: config.APIKey,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
 		},
@@ -105,6 +108,11 @@ func (c *LightRAGClient) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
 
+	// Add API key if configured
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
@@ -151,6 +159,11 @@ func (c *LightRAGClient) doRequestWithRetry(ctx context.Context, method, url str
 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+
+		// Add API key if configured
+		if c.apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		}
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {

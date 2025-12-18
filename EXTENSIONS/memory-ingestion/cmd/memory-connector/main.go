@@ -176,6 +176,7 @@ func runSync(connectorID string) {
 
 	lightragClient := client.NewLightRAGClient(client.LightRAGClientConfig{
 		APIURL:     cfg.LightRAG.URL,
+		APIKey:     cfg.LightRAG.APIKey,
 		Timeout:    time.Duration(cfg.LightRAG.Timeout) * time.Second,
 		MaxRetries: cfg.LightRAG.MaxRetries,
 		RetryDelay: time.Duration(cfg.LightRAG.RetryDelay) * time.Second,
