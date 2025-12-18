@@ -56,12 +56,25 @@ connectors:
 
 ## Step 3: Set Your API Keys
 
-**Recommended:** Use environment variables for security:
+**Memory API (Required):**
 
 ```bash
 export MEMCON_MEMORY_API_API_KEY="your-memory-api-key"
+```
+
+**LightRAG API (Optional - only if authentication is enabled):**
+
+First, check if your LightRAG server has authentication enabled:
+```bash
+curl http://localhost:9621/auth-status
+```
+
+If `"auth_configured": true`, set the API key:
+```bash
 export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
 ```
+
+If `"auth_configured": false`, skip this step - authentication is disabled.
 
 **Alternative:** Set directly in config.yaml (not recommended for production):
 
@@ -69,7 +82,7 @@ export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
 memory_api:
   api_key: "your-memory-api-key"
 lightrag:
-  api_key: "your-lightrag-api-key"
+  api_key: "your-lightrag-api-key"  # Only if auth is enabled
 ```
 
 ## Step 3.5: Test API Endpoints (Optional)
@@ -79,13 +92,31 @@ Before running a full sync, verify your API endpoints are working:
 **Test LightRAG Server:**
 
 ```bash
+# Check authentication status
+curl http://localhost:9621/auth-status
+```
+
+If `auth_configured` is `true`, you need to set the API key. If `false`, authentication is disabled and you can skip setting `MEMCON_LIGHTRAG_API_KEY`.
+
+```bash
 # Health check
 curl http://localhost:9621/health
 
-# Insert a test document
+# Insert a test document (with API key if auth is enabled)
 curl -X POST http://localhost:9621/documents/text \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: TEST123" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "text": "This is a test memory from my connector setup.",
+    "metadata": {
+      "source": "test",
+      "timestamp": "2024-01-18T12:00:00Z"
+    }
+  }'
+
+# Or without API key if auth is disabled
+curl -X POST http://localhost:9621/documents/text \
+  -H "Content-Type: application/json" \
   -d '{
     "text": "This is a test memory from my connector setup.",
     "metadata": {
@@ -289,12 +320,23 @@ logging:
 
 - Check LightRAG is running: `curl http://localhost:9621/health`
 - Verify LightRAG URL in config
-- Ensure `MEMCON_LIGHTRAG_API_KEY` environment variable is set
-- **Test manually:**
+- **Check if authentication is enabled:**
+  ```bash
+  curl http://localhost:9621/auth-status
+  ```
+  - If `"auth_configured": true` → Set `MEMCON_LIGHTRAG_API_KEY` environment variable
+  - If `"auth_configured": false` → Leave `MEMCON_LIGHTRAG_API_KEY` unset (auth disabled)
+- **Test manually with API key:**
   ```bash
   curl -X POST http://localhost:9621/documents/text \
     -H "Content-Type: application/json" \
     -H "X-API-Key: YOUR_API_KEY" \
+    -d '{"text": "test", "metadata": {}}'
+  ```
+- **Or test without API key if auth is disabled:**
+  ```bash
+  curl -X POST http://localhost:9621/documents/text \
+    -H "Content-Type: application/json" \
     -d '{"text": "test", "metadata": {}}'
   ```
 
