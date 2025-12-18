@@ -11,7 +11,6 @@ import (
 	"github.com/kamir/memory-connector/pkg/client"
 	"github.com/kamir/memory-connector/pkg/config"
 	"github.com/kamir/memory-connector/pkg/orchestrator"
-	"github.com/kamir/memory-connector/pkg/scheduler"
 	"github.com/kamir/memory-connector/pkg/state"
 	"github.com/kamir/memory-connector/pkg/transformer"
 	"github.com/spf13/cobra"
