@@ -56,11 +56,24 @@ connectors:
 
 ## Step 3: Set Your API Keys
 
-**Recommended:** Use environment variables for security:
+**Memory API (Required):**
 
 ```bash
 export MEMCON_MEMORY_API_API_KEY="your-memory-api-key"
-export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
+```
+
+**LightRAG API (Optional - only if authentication is enabled):**
+
+The connector automatically detects your LightRAG authentication configuration:
+- If authentication is **disabled**, it auto-fetches a guest access token
+- If authentication is **enabled**, you must set the API key:
+  ```bash
+  export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
+  ```
+
+To check your LightRAG auth status:
+```bash
+curl http://localhost:9621/auth-status
 ```
 
 **Alternative:** Set directly in config.yaml (not recommended for production):
@@ -69,7 +82,7 @@ export MEMCON_LIGHTRAG_API_KEY="your-lightrag-api-key"
 memory_api:
   api_key: "your-memory-api-key"
 lightrag:
-  api_key: "your-lightrag-api-key"
+  api_key: "your-lightrag-api-key"  # Only if auth is enabled
 ```
 
 ## Step 3.5: Test API Endpoints (Optional)
@@ -79,13 +92,35 @@ Before running a full sync, verify your API endpoints are working:
 **Test LightRAG Server:**
 
 ```bash
+# Check authentication status
+curl http://localhost:9621/auth-status
+```
+
+The response shows if authentication is enabled. The connector will automatically handle authentication:
+- If `"auth_configured": false` → Connector auto-fetches guest access token
+- If `"auth_configured": true` → You must set `MEMCON_LIGHTRAG_API_KEY`
+
+```bash
 # Health check
 curl http://localhost:9621/health
 
-# Insert a test document
+# Manual test: Insert a document with Bearer token (auth disabled)
+TOKEN=$(curl -s http://localhost:9621/auth-status | jq -r '.access_token')
 curl -X POST http://localhost:9621/documents/text \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: TEST123" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "text": "This is a test memory from my connector setup.",
+    "metadata": {
+      "source": "test",
+      "timestamp": "2024-01-18T12:00:00Z"
+    }
+  }'
+
+# Manual test: Insert a document with API key (auth enabled)
+curl -X POST http://localhost:9621/documents/text \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
   -d '{
     "text": "This is a test memory from my connector setup.",
     "metadata": {
@@ -94,6 +129,8 @@ curl -X POST http://localhost:9621/documents/text \
     }
   }'
 ```
+
+**Note:** The connector handles this automatically - you don't need to fetch tokens manually!
 
 Expected response:
 ```json
@@ -289,12 +326,23 @@ logging:
 
 - Check LightRAG is running: `curl http://localhost:9621/health`
 - Verify LightRAG URL in config
-- Ensure `MEMCON_LIGHTRAG_API_KEY` environment variable is set
-- **Test manually:**
+- **Check if authentication is enabled:**
+  ```bash
+  curl http://localhost:9621/auth-status
+  ```
+  - If `"auth_configured": true` → Set `MEMCON_LIGHTRAG_API_KEY` environment variable
+  - If `"auth_configured": false` → Leave `MEMCON_LIGHTRAG_API_KEY` unset (auth disabled)
+- **Test manually with API key:**
   ```bash
   curl -X POST http://localhost:9621/documents/text \
     -H "Content-Type: application/json" \
     -H "X-API-Key: YOUR_API_KEY" \
+    -d '{"text": "test", "metadata": {}}'
+  ```
+- **Or test without API key if auth is disabled:**
+  ```bash
+  curl -X POST http://localhost:9621/documents/text \
+    -H "Content-Type: application/json" \
     -d '{"text": "test", "metadata": {}}'
   ```
 
