@@ -110,7 +110,7 @@ func (c *LightRAGClient) HealthCheck(ctx context.Context) error {
 
 	// Add API key if configured
 	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		req.Header.Set("X-API-Key", c.apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -162,7 +162,7 @@ func (c *LightRAGClient) doRequestWithRetry(ctx context.Context, method, url str
 
 		// Add API key if configured
 		if c.apiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+c.apiKey)
+			req.Header.Set("X-API-Key", c.apiKey)
 		}
 
 		resp, err := c.httpClient.Do(req)
