@@ -8,8 +8,8 @@ import (
 type Memory struct {
 	ID          string    `json:"id" yaml:"id"`
 	Type        string    `json:"type" yaml:"type"`
-	Audio       *string   `json:"audio,omitempty" yaml:"audio,omitempty"`
-	Image       *string   `json:"image,omitempty" yaml:"image,omitempty"`
+	Audio       bool      `json:"audio" yaml:"audio"`
+	Image       bool      `json:"image" yaml:"image"`
 	Transcript  string    `json:"transcript" yaml:"transcript"`
 	LocationLat *float64  `json:"location_lat,omitempty" yaml:"location_lat,omitempty"`
 	LocationLon *float64  `json:"location_lon,omitempty" yaml:"location_lon,omitempty"`
@@ -47,10 +47,10 @@ func (m *Memory) HasLocation() bool {
 
 // HasAudio returns true if the memory has audio data
 func (m *Memory) HasAudio() bool {
-	return m.Audio != nil && *m.Audio != ""
+	return m.Audio
 }
 
 // HasImage returns true if the memory has image data
 func (m *Memory) HasImage() bool {
-	return m.Image != nil && *m.Image != ""
+	return m.Image
 }
