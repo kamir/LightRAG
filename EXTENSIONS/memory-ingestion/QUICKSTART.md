@@ -214,6 +214,153 @@ This will:
 
 **Stop with:** `Ctrl+C`
 
+## Step 6: Using the Reverse Lookup API
+
+The connector provides a reverse lookup API for tracing knowledge graph entities back to source memories.
+
+**Start the API server:**
+
+```bash
+./bin/memory-connector serve --config configs/config.yaml
+```
+
+The API server will start on `http://localhost:8080` with the following endpoints:
+
+### Health Check
+
+```bash
+curl http://localhost:8080/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-19T10:30:00Z"
+}
+```
+
+### Lookup by Entity
+
+Find all source memories that contributed to a specific entity:
+
+```bash
+curl "http://localhost:8080/api/v1/lookup/by-entity?name=John%20Smith"
+```
+
+Response:
+```json
+{
+  "entity_name": "John Smith",
+  "found": true,
+  "memories": [
+    {
+      "memory_id": "abc123",
+      "context_id": "user-context-1",
+      "memory_uri": "memory://user-context-1/abc123",
+      "source_system": "https://memory-api.example.com"
+    }
+  ],
+  "count": 1
+}
+```
+
+### Lookup by Memory
+
+Find all entities and relationships extracted from a specific memory:
+
+```bash
+curl "http://localhost:8080/api/v1/lookup/by-memory?memory_id=abc123&context_id=user-context-1"
+```
+
+Response:
+```json
+{
+  "memory_id": "abc123",
+  "context_id": "user-context-1",
+  "memory_uri": "memory://user-context-1/abc123",
+  "found": true,
+  "entities": ["John Smith", "New York"],
+  "relationships": ["John Smith works_in New York"],
+  "message": "Querying LightRAG knowledge graph - implementation pending"
+}
+```
+
+### Resolve Memory URI
+
+Parse and resolve a `memory://` URI:
+
+```bash
+curl "http://localhost:8080/api/v1/lookup/resolve?uri=memory://user-context-1/abc123"
+```
+
+Response:
+```json
+{
+  "memory_id": "abc123",
+  "context_id": "user-context-1",
+  "memory_uri": "memory://user-context-1/abc123",
+  "valid": true,
+  "source_system": "https://memory-api.example.com"
+}
+```
+
+Add `?fetch=true` to retrieve the full memory from the Memory API:
+
+```bash
+curl "http://localhost:8080/api/v1/lookup/resolve?uri=memory://user-context-1/abc123&fetch=true"
+```
+
+### Parse Multiple URIs
+
+Parse a delimited string of memory URIs (as returned by LightRAG):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/lookup/parse-uris \
+  -H "Content-Type: application/json" \
+  -d '{
+    "uri_string": "memory://ctx1/mem1<SEP>memory://ctx1/mem2<SEP>memory://ctx2/mem3"
+  }'
+```
+
+Response:
+```json
+{
+  "count": 3,
+  "memories": [
+    {
+      "memory_id": "mem1",
+      "context_id": "ctx1",
+      "memory_uri": "memory://ctx1/mem1"
+    },
+    {
+      "memory_id": "mem2",
+      "context_id": "ctx1",
+      "memory_uri": "memory://ctx1/mem2"
+    },
+    {
+      "memory_id": "mem3",
+      "context_id": "ctx2",
+      "memory_uri": "memory://ctx2/mem3"
+    }
+  ],
+  "unique_ids": ["mem1", "mem2", "mem3"]
+}
+```
+
+### Understanding Memory URIs
+
+Every document ingested into LightRAG includes a `file_path` metadata field using the `memory://` URI scheme:
+
+- **Format:** `memory://{context_id}/{memory_id}`
+- **Example:** `memory://user-context-1/abc123def`
+- **Purpose:** Provides complete traceability from knowledge graph entities back to source memories
+
+When LightRAG returns entity sources, you can use these URIs to:
+1. Trace back to the original Memory API item
+2. Retrieve full memory context
+3. Link knowledge graph insights to user's raw memories
+
 ## Common Configuration Patterns
 
 ### Hourly Sync (Most Common)

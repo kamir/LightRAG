@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/kamir/memory-connector/internal/logger"
+	"github.com/kamir/memory-connector/pkg/api"
 	"github.com/kamir/memory-connector/pkg/client"
 	"github.com/kamir/memory-connector/pkg/config"
 	"github.com/kamir/memory-connector/pkg/orchestrator"
@@ -234,7 +237,7 @@ func runSync(connectorID string) {
 	}
 }
 
-// runServe starts the service in daemon mode
+// runServe starts the service in daemon mode with HTTP API
 func runServe() {
 	// Load configuration
 	cfg, err := config.LoadConfig(cfgFile, log)
@@ -255,11 +258,77 @@ func runServe() {
 	log.Info("Starting Memory Connector service",
 		zap.String("version", "0.1.0"),
 		zap.Int("connectors", len(cfg.Connectors)),
+		zap.String("api_address", fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)),
 	)
 
-	// Initialize components (similar to sync but for all connectors)
-	// TODO: Implement full service mode with HTTP API and scheduler
-	log.Fatal("Service mode not yet implemented - use 'sync' command for manual syncs")
+	// Initialize clients (using first enabled connector for now)
+	var memoryClient *client.MemoryClient
+	var lightragClient *client.LightRAGClient
+
+	for _, connectorCfg := range cfg.Connectors {
+		if connectorCfg.Enabled {
+			// Initialize Memory API client
+			memoryClient = client.NewMemoryClient(client.MemoryClientConfig{
+				APIURL:     cfg.MemoryAPI.URL,
+				APIKey:     cfg.MemoryAPI.APIKey,
+				Timeout:    time.Duration(cfg.MemoryAPI.Timeout) * time.Second,
+				MaxRetries: cfg.MemoryAPI.MaxRetries,
+				RetryDelay: time.Duration(cfg.MemoryAPI.RetryDelay) * time.Second,
+			}, log)
+
+			// Initialize LightRAG client
+			lightragClient = client.NewLightRAGClient(client.LightRAGClientConfig{
+				APIURL:     cfg.LightRAG.URL,
+				APIKey:     cfg.LightRAG.APIKey,
+				Timeout:    time.Duration(cfg.LightRAG.Timeout) * time.Second,
+				MaxRetries: cfg.LightRAG.MaxRetries,
+				RetryDelay: time.Duration(cfg.LightRAG.RetryDelay) * time.Second,
+			}, log)
+
+			break
+		}
+	}
+
+	if memoryClient == nil || lightragClient == nil {
+		log.Fatal("No enabled connectors found - at least one connector must be enabled")
+	}
+
+	// Create API server
+	server := api.NewServer(cfg, memoryClient, lightragClient, log)
+
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in goroutine
+	go func() {
+		if err := server.Start(); err != nil {
+			log.Fatal("Server failed", zap.Error(err))
+		}
+	}()
+
+	log.Info("Service started successfully",
+		zap.String("status", "ready"),
+		zap.String("health_check", fmt.Sprintf("http://%s:%d/health", cfg.Server.Host, cfg.Server.Port)),
+		zap.String("lookup_api", fmt.Sprintf("http://%s:%d/api/v1/lookup", cfg.Server.Host, cfg.Server.Port)),
+	)
+
+	// TODO: Add scheduler for automatic syncs (future enhancement)
+	log.Info("Automatic scheduling not yet implemented - use 'sync' command for manual syncs")
+
+	// Wait for interrupt signal
+	<-sigChan
+	log.Info("Received shutdown signal")
+
+	// Graceful shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Error("Server shutdown error", zap.Error(err))
+	}
+
+	log.Info("Service stopped")
 }
 
 // runList lists all connectors
