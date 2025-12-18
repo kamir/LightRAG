@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kamir/memory-connector/pkg/models"
+	"github.com/kamir/memory-connector/pkg/utils"
 )
 
 // StandardStrategy provides basic transformation of memory to text
@@ -163,8 +164,16 @@ func (s *RichStrategy) Transform(memory *models.Memory, config TransformConfig) 
 	if memory.HasLocation() {
 		builder.WriteString("\n")
 		if config.EnrichLocation {
-			// TODO: Add reverse geocoding here when implemented
-			builder.WriteString(fmt.Sprintf("Location: %.4f, %.4f\n", *memory.LocationLat, *memory.LocationLon))
+			// Perform location enrichment
+			enricher := utils.NewLocationEnricher(true)
+			if enriched, err := enricher.Enrich(*memory.LocationLat, *memory.LocationLon, utils.DefaultPrecision); err == nil {
+				builder.WriteString(fmt.Sprintf("Location: %s (%.4f, %.4f)\n", enriched.PlaceName, *memory.LocationLat, *memory.LocationLon))
+				if enriched.Timezone != "" {
+					builder.WriteString(fmt.Sprintf("Timezone: %s\n", enriched.Timezone))
+				}
+			} else {
+				builder.WriteString(fmt.Sprintf("Location: %.4f, %.4f\n", *memory.LocationLat, *memory.LocationLon))
+			}
 		} else {
 			builder.WriteString(fmt.Sprintf("Location: %.4f, %.4f\n", *memory.LocationLat, *memory.LocationLon))
 		}
@@ -244,7 +253,11 @@ func buildCoreMetadata(memory *models.Memory, config TransformConfig) map[string
 	if memory.HasLocation() {
 		metadata["location_lat"] = fmt.Sprintf("%.6f", *memory.LocationLat)
 		metadata["location_lon"] = fmt.Sprintf("%.6f", *memory.LocationLon)
-		// TODO: Add geohash when implemented
+
+		// Add geohash for spatial indexing
+		if geohash, err := utils.EncodeWithDefault(*memory.LocationLat, *memory.LocationLon); err == nil {
+			metadata["location_geohash"] = geohash
+		}
 	}
 
 	// === TAGS ===
@@ -288,7 +301,27 @@ func buildRichMetadata(memory *models.Memory, config TransformConfig) map[string
 	// === LOCATION ENRICHMENT ===
 	if memory.HasLocation() && config.EnrichLocation {
 		metadata["location_enriched"] = "true"
-		// TODO: Add reverse geocoded location name when implemented
+
+		// Perform location enrichment (reverse geocoding, timezone)
+		enricher := utils.NewLocationEnricher(true) // Enable caching
+		if enriched, err := enricher.Enrich(*memory.LocationLat, *memory.LocationLon, utils.DefaultPrecision); err == nil {
+			metadata["location_place_name"] = enriched.PlaceName
+			if enriched.City != "" {
+				metadata["location_city"] = enriched.City
+			}
+			if enriched.State != "" {
+				metadata["location_state"] = enriched.State
+			}
+			if enriched.Country != "" {
+				metadata["location_country"] = enriched.Country
+			}
+			if enriched.CountryCode != "" {
+				metadata["location_country_code"] = enriched.CountryCode
+			}
+			if enriched.Timezone != "" {
+				metadata["location_timezone"] = enriched.Timezone
+			}
+		}
 	}
 
 	// === TEMPORAL METADATA (enhanced) ===
